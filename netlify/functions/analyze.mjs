@@ -27,7 +27,7 @@ Respond with valid JSON in this exact format:
     "estimated_time_minutes": 25
   },
   "coaching": {
-    "encouragement": "You have got this\! Fractions trip up a lot of adults too — but with the right questions, you can help your child crack it.",
+    "encouragement": "You have got this! Fractions trip up a lot of adults too — but with the right questions, you can help your child crack it.",
     "steps": [
       {
         "step_number": 1,
@@ -85,7 +85,7 @@ export async function handler(event) {
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 204, headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "Content-Type" } };
   }
-  if (event.httpMethod \!== "POST") {
+  if (event.httpMethod !== "POST") {
     return { statusCode: 405, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ error: "Method not allowed" }) };
   }
 
@@ -97,12 +97,12 @@ export async function handler(event) {
 
   try {
     const { image, media_type } = JSON.parse(event.body);
-    if (\!image) {
+    if (!image) {
       return { statusCode: 400, headers, body: JSON.stringify({ error: "No image provided" }) };
     }
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (\!apiKey) {
+    if (!apiKey) {
       return { statusCode: 500, headers, body: JSON.stringify({ error: "API key not configured." }) };
     }
 
@@ -140,13 +140,13 @@ export async function handler(event) {
     const apiData = await apiResponse.json();
     console.log("API response status:", apiResponse.status);
 
-    if (\!apiResponse.ok) {
+    if (!apiResponse.ok) {
       console.error("API error:", JSON.stringify(apiData));
       return { statusCode: apiResponse.status, headers, body: JSON.stringify({ error: apiData.error?.message || "API error", details: JSON.stringify(apiData) }) };
     }
 
     const textContent = apiData.content?.find((c) => c.type === "text");
-    if (\!textContent) {
+    if (!textContent) {
       return { statusCode: 500, headers, body: JSON.stringify({ error: "No response from AI" }) };
     }
 
