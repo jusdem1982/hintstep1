@@ -97,12 +97,12 @@ export async function handler(event) {
 
   try {
     const { image, media_type } = JSON.parse(event.body);
-    if (\!image) {
+    if (!image) {
       return { statusCode: 400, headers, body: JSON.stringify({ error: "No image provided" }) };
     }
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (\!apiKey) {
+    if (!apiKey) {
       return { statusCode: 500, headers, body: JSON.stringify({ error: "API key not configured." }) };
     }
 
