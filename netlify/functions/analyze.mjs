@@ -164,3 +164,4 @@ export async function handler(event) {
     return { statusCode: 500, headers, body: JSON.stringify({ error: "Something went wrong analyzing the assignment. Please try again.", details: error.message }) };
   }
 }
+
