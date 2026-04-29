@@ -112,6 +112,8 @@ export async function handler(event) {
     }
 
     // Check for API key
+    console.log("API key exists:", !!process.env.ANTHROPIC_API_KEY);
+console.log("API key starts with:", (process.env.ANTHROPIC_API_KEY || "MISSING").substring(0, 10));
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
       return {
