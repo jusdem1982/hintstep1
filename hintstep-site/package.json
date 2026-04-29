@@ -1,8 +1,0 @@
-{
-  "name": "hintstep",
-  "version": "1.0.0",
-  "description": "HintStep — Homework coaching for parents",
-  "dependencies": {
-    "@anthropic-ai/sdk": "^0.39.0"
-  }
-}
