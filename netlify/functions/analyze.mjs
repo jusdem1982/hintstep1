@@ -1,5 +1,3 @@
-import Anthropic from "@anthropic-ai/sdk";
-
 const SYSTEM_PROMPT = `You are the AI engine for HintStep, an app that helps parents coach their children through homework. You do NOT solve homework. You help PARENTS guide their children using questions, not answers.
 
 Given a photo of a homework assignment, you will:
@@ -29,7 +27,7 @@ Respond with valid JSON in this exact format:
     "estimated_time_minutes": 25
   },
   "coaching": {
-    "encouragement": "You've got this! Fractions trip up a lot of adults too — but with the right questions, you can help your child crack it.",
+    "encouragement": "You have got this\! Fractions trip up a lot of adults too — but with the right questions, you can help your child crack it.",
     "steps": [
       {
         "step_number": 1,
@@ -40,7 +38,7 @@ Respond with valid JSON in this exact format:
           "Can you show me what the top number and bottom number mean?",
           "If I cut a pizza into 4 pieces and eat 1, what fraction did I eat?"
         ],
-        "parent_tip": "Let them explain in their own words. Don't correct yet — even partial understanding is a foundation to build on.",
+        "parent_tip": "Let them explain in their own words. Do not correct yet — even partial understanding is a foundation to build on.",
         "if_stuck": "Try drawing a circle and dividing it into parts. Visual learners often need to see fractions, not just read them."
       }
     ],
@@ -84,16 +82,13 @@ If the image is not a homework assignment or is too blurry to read:
 }`;
 
 export async function handler(event) {
-  // Only allow POST
-  if (event.httpMethod !== "POST") {
-    return {
-      statusCode: 405,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ error: "Method not allowed" }),
-    };
+  if (event.httpMethod === "OPTIONS") {
+    return { statusCode: 204, headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "Content-Type" } };
+  }
+  if (event.httpMethod \!== "POST") {
+    return { statusCode: 405, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ error: "Method not allowed" }) };
   }
 
-  // CORS headers
   const headers = {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
@@ -102,67 +97,59 @@ export async function handler(event) {
 
   try {
     const { image, media_type } = JSON.parse(event.body);
-
-    if (!image) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ error: "No image provided" }),
-      };
+    if (\!image) {
+      return { statusCode: 400, headers, body: JSON.stringify({ error: "No image provided" }) };
     }
 
-    // Check for API key
-    console.log("API key exists:", !!process.env.ANTHROPIC_API_KEY);
-console.log("API key starts with:", (process.env.ANTHROPIC_API_KEY || "MISSING").substring(0, 10));
     const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      return {
-        statusCode: 500,
-        headers,
-        body: JSON.stringify({
-          error: "API key not configured. Add ANTHROPIC_API_KEY to your Netlify environment variables.",
-        }),
-      };
+    if (\!apiKey) {
+      return { statusCode: 500, headers, body: JSON.stringify({ error: "API key not configured." }) };
     }
 
-    const client = new Anthropic({ apiKey });
+    console.log("Calling Anthropic API directly with fetch...");
 
-    const response = await client.messages.create({
-      model: "claude-3-haiku-20240307",
-      max_tokens: 4000,
-      system: SYSTEM_PROMPT,
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "image",
-              source: {
-                type: "base64",
-                media_type: media_type || "image/jpeg",
-                data: image,
+    const apiResponse = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 4000,
+        system: SYSTEM_PROMPT,
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "image",
+                source: { type: "base64", media_type: media_type || "image/jpeg", data: image },
               },
-            },
-            {
-              type: "text",
-              text: "Please analyze this homework assignment and create a complete coaching guide and cheat sheet for the parent. Remember: guiding questions only, never answers.",
-            },
-          ],
-        },
-      ],
+              {
+                type: "text",
+                text: "Please analyze this homework assignment and create a complete coaching guide and cheat sheet for the parent. Remember: guiding questions only, never answers.",
+              },
+            ],
+          },
+        ],
+      }),
     });
 
-    // Extract the text content
-    const textContent = response.content.find((c) => c.type === "text");
-    if (!textContent) {
-      return {
-        statusCode: 500,
-        headers,
-        body: JSON.stringify({ error: "No response from AI" }),
-      };
+    const apiData = await apiResponse.json();
+    console.log("API response status:", apiResponse.status);
+
+    if (\!apiResponse.ok) {
+      console.error("API error:", JSON.stringify(apiData));
+      return { statusCode: apiResponse.status, headers, body: JSON.stringify({ error: apiData.error?.message || "API error", details: JSON.stringify(apiData) }) };
     }
 
-    // Parse JSON from the response — handle markdown code blocks
+    const textContent = apiData.content?.find((c) => c.type === "text");
+    if (\!textContent) {
+      return { statusCode: 500, headers, body: JSON.stringify({ error: "No response from AI" }) };
+    }
+
     let jsonText = textContent.text.trim();
     const jsonMatch = jsonText.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (jsonMatch) {
@@ -171,20 +158,9 @@ console.log("API key starts with:", (process.env.ANTHROPIC_API_KEY || "MISSING")
 
     const result = JSON.parse(jsonText);
 
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify(result),
-    };
+    return { statusCode: 200, headers, body: JSON.stringify(result) };
   } catch (error) {
     console.error("Error:", error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({
-        error: "Something went wrong analyzing the assignment. Please try again.",
-        details: error.message,
-      }),
-    };
+    return { statusCode: 500, headers, body: JSON.stringify({ error: "Something went wrong analyzing the assignment. Please try again.", details: error.message }) };
   }
 }
